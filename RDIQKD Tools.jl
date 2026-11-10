@@ -4,12 +4,7 @@ using Printf
 using DelimitedFiles
 using Plots
 
-# The tools file can be included on its own, but the normal order is:
-#   include("RDIQKD Builder.jl")
-#   include("RDIQKD Tools.jl")
-#
-# The fallback search also accepts copied/downloaded names such as
-# "RDIQKD Builder(2).jl" without requiring any change to the builder itself.
+# Load the builder if it has not already been included.
 if !isdefined(Main, :RDIQKDSDPBuilderGeneralWordsPerNodeV2MarginalBFF)
     preferred_builder_files = [
         joinpath(@__DIR__, "RDIQKD Builder.jl"),
@@ -45,10 +40,7 @@ export RateScan,
        save_heatmap_csv,
        read_scan_csv,
        print_result
-
-# =============================================================================
-# Data returned by the scan and heatmap functions
-# =============================================================================
+# data returned by the scan and heatmap functions
 
 struct RateScan
     n::Vector{Int}
@@ -69,10 +61,7 @@ struct RateHeatmap
     method::Symbol
     label::String
 end
-
-# =============================================================================
-# Small internal helpers
-# =============================================================================
+# small internal helpers
 
 function _as_int_vector(ns)
     ns isa Integer && return [Int(ns)]
@@ -210,10 +199,7 @@ function _safe_savefig(fig, path::Union{Nothing,AbstractString})
         return fallback
     end
 end
-
-# =============================================================================
-# One SDP evaluation
-# =============================================================================
+# one sdp evaluation
 
 """
     rate_at(; method=:hmin, n, theta, eta, ...)
@@ -267,8 +253,7 @@ function rate_at(;
         )
         progress_callback !== nothing && progress_callback(:after, 1, 1)
     else
-        # Build first, then solve node by node so the progress line can show
-        # exactly which independent BFF SDP is running.
+        # Solve node by node to show progress.
         result = RDI.build_bff_per_node_sdp_models(;
             common...,
             bff_n_nodes=bff_n_nodes,
@@ -296,10 +281,7 @@ function rate_at(;
         theta=Float64(theta),
     )
 end
-
-# =============================================================================
-# Theta optimization for one eta
-# =============================================================================
+# theta optimization for one eta
 
 function _best_finite(values)
     best_index = 0
@@ -556,10 +538,7 @@ function optimize_theta(;
             _method_tag(method, bff_mode), n, Float64(eta), result.theta_opt, result.rate, result.status))
     return result
 end
-
-# =============================================================================
-# Eta scan with theta optimization
-# =============================================================================
+# eta scan with theta optimization
 
 function _etas_for_n(n::Int, etas, eta_points::Int, eta_pad::Real)
     if etas === nothing
@@ -683,10 +662,7 @@ function scan_rates(;
             csv_path === nothing ? "" : " | saved to $(csv_path)"))
     return data
 end
-
-# =============================================================================
-# Heatmap
-# =============================================================================
+# heatmap
 
 "Save exactly the columns: eta, theta, rate."
 function save_heatmap_csv(data::RateHeatmap, path::AbstractString)
@@ -885,10 +861,7 @@ function rate_heatmap(;
 
     return (data=data, plot=fig, csv_path=csv_path, plot_path=saved_plot)
 end
-
-# =============================================================================
-# CSV loading
-# =============================================================================
+# csv loading
 
 function _normal_header(value)
     return lowercase(replace(strip(string(value)), r"[^a-z0-9ηθ]" => ""))
@@ -930,10 +903,7 @@ function read_scan_csv(path::AbstractString; method::Symbol=:unknown, label::Uni
     data_label = label === nothing ? splitext(basename(path))[1] : String(label)
     return RateScan(n, eta, theta, rate, method, data_label)
 end
-
-# =============================================================================
-# Plot style shared by the two rate plotting functions
-# =============================================================================
+# plot style shared by the two rate plotting functions
 
 function _rate_plot_base(;
     title::AbstractString,
@@ -1101,10 +1071,7 @@ function compare_rates(first_input, second_input;
     show_plot && display(fig)
     return (plot=fig, output_path=saved_path)
 end
-
-# =============================================================================
-# Human-readable result printing
-# =============================================================================
+# human-readable result printing
 
 function print_result(res; prefix::AbstractString="")
     if res isa RDI.RDISDPResult
@@ -1137,3 +1104,4 @@ function print_result(res; prefix::AbstractString="")
 end
 
 end # module RDIQKDTools
+
