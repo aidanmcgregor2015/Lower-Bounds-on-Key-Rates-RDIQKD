@@ -1,3 +1,6 @@
+module RDIQKDSDPBuilderGeneralWordsPerNodeV2MarginalBFF
+
+# RDIQKD SDP builder
 
 using LinearAlgebra
 using SparseArrays
@@ -57,10 +60,7 @@ export BUILDER_FIXED_VERSION,
        key_rate_from_entropy,
        key_rate_from_pguess,
        gauss_radau_bff_nodes_weights
-
-# =============================================================================
-# Result container
-# =============================================================================
+# result container
 
 Base.@kwdef mutable struct RDISDPResult
     model::JuMP.Model
@@ -100,10 +100,7 @@ Base.@kwdef mutable struct BFFPerNodeResult
     rate_bound::Union{Nothing,Float64} = nothing
     metadata::Dict{Symbol,Any} = Dict{Symbol,Any}()
 end
-
-# =============================================================================
-# Preparation and statistics helpers
-# =============================================================================
+# preparation and statistics helpers
 
 function all_pairs0(n::Int)
     n >= 2 || error("n must be at least 2")
@@ -289,10 +286,7 @@ function can_use_real_moment(amplitudes::AbstractMatrix; extra_matrices=Any[], t
     end
     return true
 end
-
-# =============================================================================
-# Word machinery
-# =============================================================================
+# word machinery
 
 B_label(y::Int) = "B[y=$(y)]"
 E_label(r::Int) = "E[r=$(r)]"
@@ -325,9 +319,7 @@ end
 _adjoint_factors(factors::Vector{String}) = [_adjoint_atom(f) for f in reverse(factors)]
 
 function _canonical_factors(factors::Vector{String}; commute_B_E::Bool=true, commute_B_Z::Bool=true)
-    # Only commute Bob factors through E/Z factors.  We do NOT commute different
-    # Bob inputs with each other, different Eve inputs with each other, or Z with
-    # Zdag.  In particular, Zdag*Z and Z*Zdag remain distinct.
+    # Commute Bob with Eve only; Zdag*Z and Z*Zdag stay distinct.
     fs = copy(factors)
     changed = true
     while changed
@@ -438,9 +430,7 @@ function _word_label_from_factors(fs_in::Vector{String})
         end
     end
 
-    # Fallback label for genuinely general words, e.g. BBE/BEE/BBEE.
-    # The factor list itself is stored separately in word_factors, so this label
-    # only has to be unique and readable.
+    # Labels for general words; factors are stored in word_factors.
     return "W[" * join(fs, "*") * "]"
 end
 
@@ -523,9 +513,7 @@ function _register_general_word_pattern!(words::Vector{String}, factors::Dict{St
         if pos > length(choices_by_token)
             canon = _canonical_factors(acc; commute_B_E=true, commute_B_Z=true)
 
-            # If a repeated projector collapsed the word, the corresponding case
-            # is already represented by a lower-order word.  We therefore skip it
-            # instead of silently adding, e.g., B_y B_y E_r as BE.
+            # Skip words that collapse to a lower order.
             length(canon) < length(acc) && return
 
             label = _word_label_from_factors(canon)
@@ -616,10 +604,7 @@ function _expand_word_blocks(word_blocks::AbstractVector{<:AbstractString}, n::I
 
     return words, factors
 end
-
-# =============================================================================
-# Sparse picker matrices and real-block complex lift
-# =============================================================================
+# sparse picker matrices and real-block complex lift
 
 function real_block(A::SparseMatrixCSC{ComplexF64,Int})
     m, n = size(A)
@@ -677,10 +662,7 @@ function _add_complex_weighted_im_entry!(F::SparseMatrixCSC{ComplexF64,Int}, N::
     _add_complex_weighted_entry!(F, N, i, j, -1im*c)
     return
 end
-
-# =============================================================================
-# Solver and quadrature
-# =============================================================================
+# solver and quadrature
 
 function _optimizer_factory(solver::Symbol; silent::Bool=true, sdpa_presolve::Bool=true, sdpa_params=nothing)
     if solver == :mosek
@@ -751,10 +733,7 @@ function _resolve_bff_nodes_weights(; bff_n_nodes::Int=4, bff_nodes=nothing, bff
         return nodes, weights
     end
 end
-
-# =============================================================================
-# Main build and solve
-# =============================================================================
+# main build and solve
 
 function build_rdi_sdp_model(; amplitudes=nothing,
                                alphas=nothing,
@@ -789,9 +768,7 @@ function build_rdi_sdp_model(; amplitudes=nothing,
     construction in (:hmin, :bff) || error("construction must be :hmin or :bff")
     metadata = Dict{Symbol,Any}(metadata)
 
-    # Accept both Greek and ASCII spellings.  If both are supplied, the ASCII
-    # aliases deliberately override because they are usually what the caller
-    # intended in ordinary Julia scripts.
+    # ASCII aliases take precedence over Greek arguments.
     eta !== nothing && (η = eta)
     lambda !== nothing && (λ = lambda)
 
@@ -978,15 +955,12 @@ function build_rdi_sdp_model(; amplitudes=nothing,
         add_entry_eq!(IA_word(a,Id), IA_word(b,Id), a == b ? 1.0 : 0.0)
     end
 
-    # Statistics constraints: <psi_x|B_y|psi_x> = P0[x,y].
-    # These are the observed statistics constraints.
+    # Observed statistics.
     for x in 1:nstates, y in 1:nstates
         add_eq_F!(weighted_F_re(x, Id, B_label(y)), P[x,y])
     end
 
-    # Fix all four computational-basis entries of every Bob effect.
-    # This is unconditional, so H_min, combined BFF, and per-node BFF all use
-    # exactly the same fixed Bob blocks.
+    # Fix Bob blocks for both H_min and BFF.
     for y in 1:nstates
         By = Bfixed[y]
         wy = B_label(y)
@@ -1080,12 +1054,7 @@ function build_rdi_sdp_model(; amplitudes=nothing,
                         obj += scale * (1.0 - t) * weighted_expr(x0+1, Z, BZ)
                     end
 
-                    # Marginal conditioning term: this is the important correction.
-                    # For each fixed Z_{i,r,k}, the t term is evaluated on the
-                    # successful marginal over the conditioning system, so it sums
-                    # over ell and y in r:
-                    #   t * sum_{ell,y} p(r,ell,y) <Z B_y Z^dag>_{rho_{r_ell}}
-                    # represented as Gamma[Zdag, B_y Zdag].
+                    # The marginal term sums over ell and y in r for each Z_{i,r,k}.
                     for ell0 in 0:1
                         xell = ell0 == 0 ? r0 : r1
                         for yy0 in (r0,r1)
