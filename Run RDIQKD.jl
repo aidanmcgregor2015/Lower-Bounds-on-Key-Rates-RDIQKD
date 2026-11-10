@@ -1,3 +1,6 @@
+# RDIQKD examples
+# file loading
+
 function find_rdiqkd_file(preferred_name::AbstractString, prefix::AbstractString)
     preferred_path = joinpath(@__DIR__, preferred_name)
     isfile(preferred_path) && return preferred_path
@@ -31,19 +34,13 @@ println("Tools file:   ", tools_file)
 
 # Change this once here to use another solver in the examples.
 RUN_SOLVER = :mosek  # alternatives supported by the builder: :scs, :sdpa_gmp, ...
-
-# =============================================================================
-# Preparation helper
-# =============================================================================
+# preparation helper
 
 "Phase preparation accepted by both the builder and the tools file."
 function simple_phase_preparation(n::Int, theta::Real)
     return RDI.phase_amplitudes(n, theta)
 end
-
-# =============================================================================
-# Direct builder examples (builder unchanged)
-# =============================================================================
+# direct builder examples
 
 function run_hmin_builder_example(;
     n::Int=2,
@@ -117,10 +114,7 @@ function run_bff_per_node_builder_example(;
     RDITools.print_result(result)
     return result
 end
-
-# =============================================================================
-# Tools examples
-# =============================================================================
+# tools examples
 
 "Solve one H_min or BFF point with RDIQKDTools.rate_at."
 function run_rate_at_example(;
@@ -450,6 +444,3 @@ Examples:
 end
 
 print_available_calls()
-
-# Nothing computationally expensive is run automatically. Call one of the
-# functions printed above after including this file.
